@@ -1,0 +1,10 @@
+{
+  "name": "@flowdesk/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "files": [
+    "typescript/*.json",
+    "eslint/*.js"
+  ]
+}

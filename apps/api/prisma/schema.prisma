@@ -1,0 +1,315 @@
+// FlowDesk — Prisma schema
+// See /home/blaz/.claude/plans/build-a-new-app-scalable-bengio.md §2 for design notes.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enums ----------
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum BoardRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum NotificationType {
+  CARD_ASSIGNED
+  CARD_COMMENT
+  CARD_DUE_SOON
+  MENTION
+  CHANNEL_INVITE
+  WORKSPACE_INVITE
+}
+
+// ---------- Core ----------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
+  workspaceMembers WorkspaceMember[]
+  boardMembers     BoardMember[]
+  cardMemberships  CardMember[]
+  comments         Comment[]
+  channelMembers   ChannelMember[]
+  messages         Message[]
+  notifications    Notification[]
+  refreshTokens    RefreshToken[]
+
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner    User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members  WorkspaceMember[]
+  boards   Board[]
+  channels Channel[]
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole @default(MEMBER)
+  createdAt   DateTime      @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+  @@index([userId])
+}
+
+
+
+model Board {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  background  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   BoardMember[]
+  lists     List[]
+  labels    Label[]
+
+  @@index([workspaceId])
+}
+
+model BoardMember {
+  id        String    @id @default(cuid())
+  boardId   String
+  userId    String
+  role      BoardRole @default(EDITOR)
+  createdAt DateTime  @default(now())
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, boardId])
+  @@index([boardId])
+  @@index([userId])
+}
+
+model List {
+  id        String   @id @default(cuid())
+  boardId   String
+  name      String
+  position  Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards Card[]
+
+  @@index([boardId, position])
+}
+
+model Card {
+  id           String                   @id @default(cuid())
+  listId       String
+  title        String
+  description  String?
+  position     Float
+  dueDate      DateTime?
+  coverColor   String?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  /// Generated column (see migration 20260901133553_add_fulltext_search) —
+  /// Prisma has no tsvector type, so this is declared Unsupported to avoid
+  /// drift detection trying to drop it. Not written to from application code.
+  searchVector Unsupported("tsvector")?
+
+  list        List         @relation(fields: [listId], references: [id], onDelete: Cascade)
+  members     CardMember[]
+  labels      CardLabel[]
+  comments    Comment[]
+  attachments Attachment[]
+
+  @@index([listId, position])
+}
+
+model CardMember {
+  id     String @id @default(cuid())
+  cardId String
+  userId String
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, userId])
+  @@index([userId])
+}
+
+model Label {
+  id      String @id @default(cuid())
+  boardId String
+  name    String
+  color   String
+
+  board Board       @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards CardLabel[]
+
+  @@index([boardId])
+}
+
+model CardLabel {
+  cardId  String
+  labelId String
+
+  card  Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, labelId])
+  @@index([labelId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  cardId    String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+  @@index([userId])
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  cardId    String
+  url       String
+  fileName  String
+  fileSize  Int?
+  mimeType  String?
+  createdAt DateTime @default(now())
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId])
+}
+
+// ---------- Chat (Slack-style) ----------
+
+model Channel {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  isPrivate   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  members   ChannelMember[]
+  messages  Message[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+  @@index([channelId])
+  @@index([userId])
+}
+
+model Message {
+  id           String                   @id @default(cuid())
+  channelId    String
+  userId       String
+  body         String
+  createdAt    DateTime                 @default(now())
+  editedAt     DateTime?
+  /// See Card.searchVector.
+  searchVector Unsupported("tsvector")?
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([channelId, createdAt])
+  @@index([userId])
+}
+
+// ---------- Notifications ----------
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+// ---------- Activity log ----------
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  boardId    String
+  actorId    String
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([boardId, createdAt])
+}

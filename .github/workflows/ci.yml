@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DATABASE_URL: postgresql://flowdesk:flowdesk@localhost:5432/flowdesk?schema=public
+  JWT_ACCESS_SECRET: ci-access-secret
+  JWT_ACCESS_EXPIRES_IN: 15m
+  JWT_REFRESH_SECRET: ci-refresh-secret
+  JWT_REFRESH_EXPIRES_IN: 7d
+  CORS_ORIGIN: http://localhost:3000
+  UPLOADS_DRIVER: local
+  UPLOADS_LOCAL_DIR: ./uploads
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    # A fresh, non-persisted Postgres per run — this is what actually catches
+    # a missing/uncommitted migration, unlike the persistent-volume Postgres
+    # used for local dev.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: flowdesk
+          POSTGRES_PASSWORD: flowdesk
+          POSTGRES_DB: flowdesk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U flowdesk -d flowdesk"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm turbo run lint
+
+      - name: Typecheck
+        run: pnpm turbo run typecheck
+
+      - name: Apply migrations (schema-drift check)
+        working-directory: apps/api
+        run: pnpm exec prisma migrate deploy
+
+      - name: Check for missing/out-of-sync migrations
+        working-directory: apps/api
+        run: pnpm exec prisma migrate status
+
+      - name: Unit tests
+        run: pnpm turbo run test
+
+      - name: E2E tests
+        run: pnpm turbo run test:e2e
+
+      - name: Build
+        run: pnpm turbo run build
