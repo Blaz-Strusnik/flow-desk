@@ -161,3 +161,7 @@ Postgres data and uploaded attachments live in named Docker volumes
 docker compose -f docker-compose.prod.yml logs -f api
 docker compose -f docker-compose.prod.yml logs -f web
 ```
+
+## License
+
+[MIT](LICENSE)
