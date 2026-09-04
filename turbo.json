@@ -1,5 +1,15 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalEnv": [
+    "DATABASE_URL",
+    "JWT_ACCESS_SECRET",
+    "JWT_ACCESS_EXPIRES_IN",
+    "JWT_REFRESH_SECRET",
+    "JWT_REFRESH_EXPIRES_IN",
+    "CORS_ORIGIN",
+    "UPLOADS_DRIVER",
+    "UPLOADS_LOCAL_DIR"
+  ],
   "tasks": {
     "db:generate": {
       "cache": false
