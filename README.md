@@ -10,6 +10,44 @@ team chat, in one app.
 
 Managed as a Turborepo + pnpm workspace.
 
+## Features
+
+**Workspaces & members**
+
+- Multiple workspaces per account, each with its own boards, channels, and
+  member list.
+- Invite existing accounts by email; OWNER/ADMIN can also remove members,
+  which revokes their board, card, and channel access in that workspace.
+- Workspace membership grants access to **every** board in the workspace
+  (board role is derived from the workspace role). An explicit board
+  membership is an override — e.g. to pin someone to read-only VIEWER.
+- Roles: workspace OWNER / ADMIN / MEMBER, board OWNER / EDITOR / VIEWER.
+
+**Boards, lists & cards**
+
+- Drag-and-drop cards between lists and reorder lists, with fractional
+  positioning and server-side rebalancing.
+- Cards carry a description (rich text), **start date and due date**
+  (shown as a range on the card), a cover color, assignees, comments, and
+  file attachments.
+- **Labels** with a name and color, rendered on board cards as colored
+  chips with auto-contrasting text.
+- Full-text search across cards and messages.
+- Per-board activity log.
+
+**Real-time**
+
+- Socket.IO: live board updates (lists/cards created, moved, deleted) and
+  presence indicators showing who else is on a board.
+- Team chat with channels (public or private) and message history per
+  workspace.
+
+**Accounts**
+
+- Email/password auth with short-lived JWT access tokens and rotating
+  refresh tokens.
+- In-app notifications (assignments, comments, mentions, due-soon).
+
 ## Prerequisites
 
 - Node.js 22+
