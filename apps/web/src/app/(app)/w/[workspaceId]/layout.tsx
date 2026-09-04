@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Hash, Lock, Plus, Trash2 } from "lucide-react";
+import { Hash, Lock, Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +45,17 @@ export default function WorkspaceLayout({ children }: LayoutProps<"/w/[workspace
       <aside className="flex w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r p-3">
         <Link href="/workspaces" className="text-xs text-muted-foreground hover:underline">
           &larr; All workspaces
+        </Link>
+
+        <Link
+          href={`/w/${workspaceId}`}
+          className={cn(
+            "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm hover:bg-accent",
+            pathname === `/w/${workspaceId}` && "bg-accent font-medium"
+          )}
+        >
+          <Users className="size-3.5 text-muted-foreground" />
+          Workspace members
         </Link>
 
         <div>

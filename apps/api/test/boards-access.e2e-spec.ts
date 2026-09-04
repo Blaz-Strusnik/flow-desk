@@ -84,11 +84,11 @@ describe("Board access control (e2e)", () => {
       .expect(200);
   });
 
-  it("a workspace member who is NOT a board member gets 404 on every board/list/card endpoint", async () => {
+  it("a workspace member with no explicit BoardMember row still gets full read+write access to every board/list/card", async () => {
     const server = app.getHttpServer();
 
     // Make the outsider a workspace member (but never a board member) —
-    // this is exactly the case the two-layer access model must block.
+    // workspace membership alone now grants access to every board.
     await request(server)
       .post(`/workspaces/${workspaceId}/members`)
       .set("Authorization", `Bearer ${ownerToken}`)
@@ -98,36 +98,30 @@ describe("Board access control (e2e)", () => {
     await request(server)
       .get(`/boards/${boardId}`)
       .set("Authorization", `Bearer ${outsiderToken}`)
-      .expect(404);
+      .expect(200);
 
     await request(server)
       .post(`/boards/${boardId}/lists`)
       .set("Authorization", `Bearer ${outsiderToken}`)
-      .send({ name: "Sneaky List" })
-      .expect(404);
+      .send({ name: "Member's List" })
+      .expect(201);
 
     await request(server)
       .post(`/lists/${listId}/cards`)
       .set("Authorization", `Bearer ${outsiderToken}`)
-      .send({ title: "Sneaky Card" })
-      .expect(404);
+      .send({ title: "Member's Card" })
+      .expect(201);
 
     await request(server)
       .get(`/cards/${cardId}`)
       .set("Authorization", `Bearer ${outsiderToken}`)
-      .expect(404);
+      .expect(200);
 
     await request(server)
       .patch(`/cards/${cardId}`)
       .set("Authorization", `Bearer ${outsiderToken}`)
-      .send({ title: "hacked" })
-      .expect(404);
-
-    await request(server)
-      .patch(`/cards/${cardId}/move`)
-      .set("Authorization", `Bearer ${outsiderToken}`)
-      .send({ listId })
-      .expect(404);
+      .send({ title: "Edited by workspace member" })
+      .expect(200);
 
     async function getOutsiderEmail() {
       const me = await request(server)
@@ -136,6 +130,22 @@ describe("Board access control (e2e)", () => {
         .expect(200);
       return me.body.email as string;
     }
+  });
+
+  it("a user who is not a member of the workspace still gets 404 on the board", async () => {
+    const server = app.getHttpServer();
+    const strangerToken = await registerAndGetToken(server, `board-stranger-${Date.now()}@example.com`);
+
+    await request(server)
+      .get(`/boards/${boardId}`)
+      .set("Authorization", `Bearer ${strangerToken}`)
+      .expect(404);
+
+    await request(server)
+      .post(`/boards/${boardId}/lists`)
+      .set("Authorization", `Bearer ${strangerToken}`)
+      .send({ name: "Sneaky List" })
+      .expect(404);
   });
 
   it("a totally unauthenticated caller gets 401, not 404, before board membership is even checked", async () => {

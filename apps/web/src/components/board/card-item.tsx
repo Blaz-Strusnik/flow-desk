@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { readableTextColor } from "@/lib/label-color";
 import { cn } from "@/lib/utils";
 
 interface CardItemProps {
@@ -42,18 +43,24 @@ export function CardItem({ card, onOpen }: CardItemProps) {
           {card.labels.map((label) => (
             <span
               key={label.id}
-              className="h-2 w-8 rounded-full"
-              style={{ backgroundColor: label.color }}
+              className="rounded px-1.5 py-0.5 text-[11px] font-medium leading-tight"
+              style={{ backgroundColor: label.color, color: readableTextColor(label.color) }}
               title={label.name}
-            />
+            >
+              {label.name}
+            </span>
           ))}
         </div>
       )}
       <p className="font-medium leading-snug">{card.title}</p>
-      {card.dueDate && (
+      {(card.startDate || card.dueDate) && (
         <Badge variant="secondary" className="w-fit gap-1 text-xs font-normal">
           <CalendarIcon className="size-3" />
-          {format(new Date(card.dueDate), "MMM d")}
+          {card.startDate && card.dueDate
+            ? `${format(new Date(card.startDate), "MMM d")} – ${format(new Date(card.dueDate), "MMM d")}`
+            : card.dueDate
+              ? format(new Date(card.dueDate), "MMM d")
+              : `Starts ${format(new Date(card.startDate!), "MMM d")}`}
         </Badge>
       )}
     </Card>

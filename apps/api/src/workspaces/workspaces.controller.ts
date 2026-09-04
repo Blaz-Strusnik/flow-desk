@@ -63,4 +63,12 @@ export class WorkspacesController {
   ) {
     return this.workspaces.inviteByEmail(workspaceId, body.email);
   }
+
+  @Delete(":workspaceId/members/:userId")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(WorkspaceMemberGuard, RolesGuard)
+  @Roles("OWNER", "ADMIN")
+  removeMember(@Param("workspaceId") workspaceId: string, @Param("userId") userId: string) {
+    return this.workspaces.removeMember(workspaceId, userId);
+  }
 }

@@ -15,11 +15,12 @@ export class BoardsService {
     });
   }
 
-  /** Only boards within the workspace that the user is ALSO a BoardMember
-   * of — workspace membership alone does not grant board visibility. */
-  async listForUserInWorkspace(workspaceId: string, userId: string) {
+  /** Every board in the workspace — workspace membership grants access to
+   * all of them. The caller is already gated by WorkspaceMemberGuard.
+   * `userId` is kept for symmetry with the access model / future filters. */
+  async listForUserInWorkspace(workspaceId: string, _userId: string) {
     return this.prisma.board.findMany({
-      where: { workspaceId, members: { some: { userId } } },
+      where: { workspaceId },
       orderBy: { createdAt: "asc" },
     });
   }

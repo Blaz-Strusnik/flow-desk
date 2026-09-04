@@ -53,6 +53,7 @@ export interface CardDto {
   title: string;
   description: string | null;
   position: number;
+  startDate: string | null;
   dueDate: string | null;
   coverColor: string | null;
 }

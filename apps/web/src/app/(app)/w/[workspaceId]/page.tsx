@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { Plus, Trash2, UserPlus } from "lucide-react";
+import { Plus, Trash2, UserMinus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useWorkspaceBoards } from "@/hooks/use-boards";
 import { useDeleteWorkspace, useWorkspace } from "@/hooks/use-workspaces";
-import { useInviteWorkspaceMember, useWorkspaceMembers } from "@/hooks/use-workspace-members";
+import {
+  useInviteWorkspaceMember,
+  useRemoveWorkspaceMember,
+  useWorkspaceMembers,
+} from "@/hooks/use-workspace-members";
 import { ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth/auth-context";
 
@@ -25,15 +29,32 @@ export default function WorkspaceHomePage() {
   const { data: boards, isLoading } = useWorkspaceBoards(workspaceId);
   const { data: members } = useWorkspaceMembers(workspaceId);
   const inviteMember = useInviteWorkspaceMember(workspaceId);
+  const removeMember = useRemoveWorkspaceMember(workspaceId);
   const deleteWorkspace = useDeleteWorkspace();
 
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<{ userId: string; name: string } | null>(null);
 
+  // Derive ownership from the workspace record (stable) rather than the
+  // members list, which briefly refetches — and goes undefined — whenever
+  // someone is invited, making the danger zone flicker out.
+  const isOwner = !!workspace && workspace.ownerId === user?.id;
   const myRole = members?.find((m) => m.userId === user?.id)?.role;
-  const isOwner = myRole === "OWNER";
+  const canManageMembers = isOwner || myRole === "ADMIN";
+
+  const confirmRemoveMember = async () => {
+    if (!removeTarget) return;
+    try {
+      await removeMember.mutateAsync(removeTarget.userId);
+      toast.success(`${removeTarget.name} removed from the workspace`);
+      setRemoveTarget(null);
+    } catch {
+      toast.error("Failed to remove member");
+    }
+  };
 
   const invite = async () => {
     try {
@@ -100,20 +121,35 @@ export default function WorkspaceHomePage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          {members?.map((member) => (
-            <div key={member.userId} className="flex items-center gap-2 rounded-md border px-3 py-2">
-              <Avatar className="size-7">
-                <AvatarFallback className="text-xs">{member.user.name[0]}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <p className="text-sm font-medium">{member.user.name}</p>
-                <p className="text-xs text-muted-foreground">{member.user.email}</p>
+          {members?.map((member) => {
+            const isWorkspaceOwner = member.userId === workspace?.ownerId;
+            const canRemove = canManageMembers && !isWorkspaceOwner && member.userId !== user?.id;
+            return (
+              <div key={member.userId} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                <Avatar className="size-7">
+                  <AvatarFallback className="text-xs">{member.user.name[0]}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{member.user.name}</p>
+                  <p className="text-xs text-muted-foreground">{member.user.email}</p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {member.role}
+                </Badge>
+                {canRemove && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-muted-foreground hover:text-destructive"
+                    aria-label={`Remove ${member.user.name}`}
+                    onClick={() => setRemoveTarget({ userId: member.userId, name: member.user.name })}
+                  >
+                    <UserMinus className="size-4" />
+                  </Button>
+                )}
               </div>
-              <Badge variant="outline" className="text-xs">
-                {member.role}
-              </Badge>
-            </div>
-          ))}
+            );
+          })}
           {members && members.length === 0 && (
             <p className="text-sm text-muted-foreground">No members yet.</p>
           )}
@@ -179,6 +215,31 @@ export default function WorkspaceHomePage() {
           </Dialog>
         </div>
       )}
+
+      <Dialog
+        open={removeTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) setRemoveTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove {removeTarget?.name} from the workspace?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            They immediately lose access to every board, card, and channel in this workspace. Any boards
+            they created stay. You can invite them again later.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRemoveTarget(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" disabled={removeMember.isPending} onClick={confirmRemoveMember}>
+              Remove member
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

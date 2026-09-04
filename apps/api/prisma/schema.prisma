@@ -153,6 +153,7 @@ model Card {
   title        String
   description  String?
   position     Float
+  startDate    DateTime?
   dueDate      DateTime?
   coverColor   String?
   createdAt    DateTime                 @default(now())

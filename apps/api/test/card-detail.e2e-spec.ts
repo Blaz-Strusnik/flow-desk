@@ -175,4 +175,32 @@ describe("Card detail assembly (e2e)", () => {
     expect(detail.body.labels.find((l: { id: string }) => l.id === labelRes.body.id)).toBeUndefined();
     expect(detail.body.members.find((m: { id: string }) => m.id === memberUserId)).toBeUndefined();
   });
+
+  it("persists startDate and dueDate independently, and clears them with null", async () => {
+    const server = app.getHttpServer();
+
+    const patched = await request(server)
+      .patch(`/cards/${cardId}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ startDate: "2026-03-10T00:00:00.000Z", dueDate: "2026-03-15T00:00:00.000Z" })
+      .expect(200);
+    expect(new Date(patched.body.startDate).toISOString()).toBe("2026-03-10T00:00:00.000Z");
+    expect(new Date(patched.body.dueDate).toISOString()).toBe("2026-03-15T00:00:00.000Z");
+
+    // Detail endpoint exposes the new field too.
+    const detail = await request(server)
+      .get(`/cards/${cardId}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .expect(200);
+    expect(new Date(detail.body.startDate).toISOString()).toBe("2026-03-10T00:00:00.000Z");
+
+    // Clearing only startDate leaves dueDate intact.
+    const cleared = await request(server)
+      .patch(`/cards/${cardId}`)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .send({ startDate: null })
+      .expect(200);
+    expect(cleared.body.startDate).toBeNull();
+    expect(new Date(cleared.body.dueDate).toISOString()).toBe("2026-03-15T00:00:00.000Z");
+  });
 });

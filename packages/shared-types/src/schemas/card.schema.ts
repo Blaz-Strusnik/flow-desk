@@ -8,6 +8,7 @@ export type CreateCardInput = z.infer<typeof createCardSchema>;
 export const updateCardSchema = z.object({
   title: z.string().min(1).max(255).optional(),
   description: z.string().max(20000).nullable().optional(),
+  startDate: z.string().datetime().nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   coverColor: z.string().max(32).nullable().optional(),
 });

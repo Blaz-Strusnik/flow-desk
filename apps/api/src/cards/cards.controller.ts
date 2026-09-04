@@ -46,7 +46,13 @@ export class CardsController {
   update(
     @Param("cardId") cardId: string,
     @Body(new ZodValidationPipe(updateCardSchema))
-    body: { title?: string; description?: string | null; dueDate?: string | null; coverColor?: string | null }
+    body: {
+      title?: string;
+      description?: string | null;
+      startDate?: string | null;
+      dueDate?: string | null;
+      coverColor?: string | null;
+    }
   ) {
     return this.cards.update(cardId, body);
   }

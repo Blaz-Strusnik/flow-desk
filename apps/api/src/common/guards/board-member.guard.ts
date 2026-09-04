@@ -1,12 +1,14 @@
 import { CanActivate, ExecutionContext, Injectable, NotFoundException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { PrismaService } from "../../prisma/prisma.service.js";
+import { resolveBoardAccess } from "../board-access.util.js";
 import { BOARD_RESOLVE_KEY, BoardResolveSource } from "../decorators/resolve-board-from.decorator.js";
 
 /**
- * Requires the current user to have a BoardMember row for the board being
- * accessed — the second access-control layer beyond workspace membership.
- * Non-members get 404, matching WorkspaceMemberGuard's leakage policy.
+ * Grants access to a board when the current user is a member of its
+ * workspace (implicit access to every board) or has an explicit
+ * BoardMember row that overrides the derived role. Users with neither
+ * get 404, matching WorkspaceMemberGuard's leakage policy.
  *
  * A single guard class serves board/list/card routes alike by resolving
  * the effective boardId per @ResolveBoardFrom() metadata:
@@ -34,16 +36,13 @@ export class BoardMemberGuard implements CanActivate {
       throw new NotFoundException("Board not found");
     }
 
-    const membership = await this.prisma.boardMember.findUnique({
-      where: { userId_boardId: { userId: request.user.id, boardId } },
-    });
-
-    if (!membership) {
+    const access = await resolveBoardAccess(this.prisma, request.user.id, boardId);
+    if (!access) {
       throw new NotFoundException("Board not found");
     }
 
     request.boardId = boardId;
-    request.boardMembership = membership;
+    request.boardMembership = { role: access.role, source: access.source };
     return true;
   }
 

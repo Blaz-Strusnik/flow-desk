@@ -11,6 +11,7 @@ function makeCard(overrides: Partial<BoardCardDto> = {}): BoardCardDto {
     title: "Write the report",
     description: null,
     position: 1024,
+    startDate: null,
     dueDate: null,
     coverColor: null,
     labels: [],
@@ -55,17 +56,35 @@ describe("CardItem", () => {
     expect(screen.queryByText(/^[A-Z][a-z]{2} \d+$/)).not.toBeInTheDocument();
   });
 
-  it("renders one swatch per label", () => {
+  it("renders a start–end range when the card has both a start and due date", () => {
+    renderCard(
+      makeCard({ startDate: "2026-03-10T00:00:00.000Z", dueDate: "2026-03-15T00:00:00.000Z" }),
+      vi.fn()
+    );
+    expect(screen.getByText("Mar 10 – Mar 15")).toBeInTheDocument();
+  });
+
+  it("renders a 'Starts' badge when the card has only a start date", () => {
+    renderCard(makeCard({ startDate: "2026-03-10T00:00:00.000Z" }), vi.fn());
+    expect(screen.getByText("Starts Mar 10")).toBeInTheDocument();
+  });
+
+  it("renders one chip per label showing its name, filled with its color", () => {
     renderCard(
       makeCard({
         labels: [
-          { id: "l1", boardId: "b1", name: "Bug", color: "#ff0000" },
-          { id: "l2", boardId: "b1", name: "Urgent", color: "#00ff00" },
+          { id: "l1", boardId: "b1", name: "Bug", color: "#ef4444" },
+          { id: "l2", boardId: "b1", name: "Urgent", color: "#eab308" },
         ],
       }),
       vi.fn()
     );
-    expect(screen.getByTitle("Bug")).toBeInTheDocument();
-    expect(screen.getByTitle("Urgent")).toBeInTheDocument();
+
+    const bug = screen.getByText("Bug");
+    expect(bug).toBeInTheDocument();
+    expect(bug).toHaveStyle({ backgroundColor: "#ef4444" });
+    // Dark red → white text; light yellow → black text.
+    expect(bug).toHaveStyle({ color: "#ffffff" });
+    expect(screen.getByText("Urgent")).toHaveStyle({ color: "#000000" });
   });
 });

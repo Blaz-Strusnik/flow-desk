@@ -23,6 +23,7 @@ import {
   WS_EVENTS,
 } from "@flowdesk/shared-types";
 import { PrismaService } from "../prisma/prisma.service.js";
+import { resolveBoardAccess } from "../common/board-access.util.js";
 import { PresenceService } from "./presence.service.js";
 import { authenticateSocket } from "./socket-auth.util.js";
 import { WsJwtGuard, type AuthenticatedSocket } from "./ws-jwt.guard.js";
@@ -63,10 +64,8 @@ export class BoardsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @UseGuards(WsJwtGuard)
   @SubscribeMessage(WS_EVENTS.BOARD_JOIN)
   async onBoardJoin(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() body: BoardJoinPayload) {
-    const membership = await this.prisma.boardMember.findUnique({
-      where: { userId_boardId: { userId: client.data.userId, boardId: body.boardId } },
-    });
-    if (!membership) {
+    const access = await resolveBoardAccess(this.prisma, client.data.userId, body.boardId);
+    if (!access) {
       return;
     }
 

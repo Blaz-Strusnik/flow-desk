@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service.js";
 
 @Injectable()
@@ -65,5 +70,39 @@ export class WorkspacesService {
       data: { workspaceId, userId: user.id, role: "MEMBER" },
       include: { user: { select: { id: true, email: true, name: true, avatarUrl: true } } },
     });
+  }
+
+  /**
+   * Removes a member from the workspace and tears down every access grant
+   * they held inside it — board/card/channel memberships included — so an
+   * explicit BoardMember row can't keep granting board access after the
+   * person has been uninvited. The workspace owner can't be removed.
+   */
+  async removeMember(workspaceId: string, userId: string) {
+    const workspace = await this.prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (!workspace) {
+      throw new NotFoundException("Workspace not found");
+    }
+    if (workspace.ownerId === userId) {
+      throw new ForbiddenException("The workspace owner cannot be removed");
+    }
+
+    const membership = await this.prisma.workspaceMember.findUnique({
+      where: { userId_workspaceId: { userId, workspaceId } },
+    });
+    if (!membership) {
+      throw new NotFoundException("User is not a member of this workspace");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.cardMember.deleteMany({
+        where: { userId, card: { list: { board: { workspaceId } } } },
+      }),
+      this.prisma.boardMember.deleteMany({ where: { userId, board: { workspaceId } } }),
+      this.prisma.channelMember.deleteMany({ where: { userId, channel: { workspaceId } } }),
+      this.prisma.workspaceMember.delete({
+        where: { userId_workspaceId: { userId, workspaceId } },
+      }),
+    ]);
   }
 }

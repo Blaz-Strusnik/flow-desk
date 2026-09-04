@@ -54,11 +54,18 @@ export class CardsService {
 
   async update(
     cardId: string,
-    data: { title?: string; description?: string | null; dueDate?: string | null; coverColor?: string | null }
+    data: {
+      title?: string;
+      description?: string | null;
+      startDate?: string | null;
+      dueDate?: string | null;
+      coverColor?: string | null;
+    }
   ) {
+    const toDate = (v: string | null | undefined) => (v === undefined ? undefined : v ? new Date(v) : null);
     const card = await this.prisma.card.update({
       where: { id: cardId },
-      data: { ...data, dueDate: data.dueDate === undefined ? undefined : data.dueDate ? new Date(data.dueDate) : null },
+      data: { ...data, startDate: toDate(data.startDate), dueDate: toDate(data.dueDate) },
       include: { list: { select: { boardId: true } } },
     });
     this.events.emit(WS_EVENTS.CARD_UPDATED, { boardId: card.list.boardId, listId: card.listId, cardId: card.id });

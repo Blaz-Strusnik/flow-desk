@@ -1,6 +1,7 @@
 "use client";
 
 import { UserPlus, Users } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,14 @@ export function BoardMembersDialog({ boardId, workspaceId }: { boardId: string; 
             Everyone in this workspace already has access to this board.
           </p>
         )}
+
+        <div className="border-t pt-3">
+          <Button asChild variant="outline" size="sm" className="w-full gap-1">
+            <Link href={`/w/${workspaceId}`} onClick={() => setOpen(false)}>
+              <Users className="size-4" /> Manage workspace members
+            </Link>
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -26,3 +26,17 @@ export function useInviteWorkspaceMember(workspaceId: string) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workspace-members", workspaceId] }),
   });
 }
+
+export function useRemoveWorkspaceMember(workspaceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      apiFetch(`/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      // Removing someone also strips their board/card access, so refresh
+      // anything scoped to the workspace's boards too.
+      queryClient.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ["boards", workspaceId] });
+    },
+  });
+}

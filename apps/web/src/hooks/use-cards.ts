@@ -1,4 +1,4 @@
-import type { BoardDetailDto, CardDetailDto, CardDto } from "@flowdesk/shared-types";
+import type { BoardCardDto, BoardDetailDto, CardDetailDto, CardDto } from "@flowdesk/shared-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 
@@ -82,6 +82,7 @@ export function useUpdateCard(boardId: string) {
       cardId: string;
       title?: string;
       description?: string | null;
+      startDate?: string | null;
       dueDate?: string | null;
       coverColor?: string | null;
     }) =>
@@ -118,20 +119,56 @@ export function useAddComment(cardId: string) {
   });
 }
 
-export function useAttachLabel(cardId: string) {
+/** Patches the label list of one card inside the cached board detail. */
+function patchBoardCardLabels(
+  queryClient: ReturnType<typeof useQueryClient>,
+  boardId: string,
+  cardId: string,
+  update: (labels: BoardCardDto["labels"]) => BoardCardDto["labels"]
+) {
+  queryClient.setQueryData<BoardDetailDto>(["board", boardId], (old) =>
+    old
+      ? {
+          ...old,
+          lists: old.lists.map((l) => ({
+            ...l,
+            cards: l.cards.map((c) => (c.id === cardId ? { ...c, labels: update(c.labels) } : c)),
+          })),
+        }
+      : old
+  );
+}
+
+export function useAttachLabel(cardId: string, boardId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (labelId: string) =>
       apiFetch(`/cards/${cardId}/labels`, { method: "POST", body: JSON.stringify({ labelId }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["card", cardId] }),
+    onSuccess: (_data, labelId) => {
+      // Reflect on the board immediately — the label's color lives on the
+      // board's label palette, so no refetch is needed to draw the swatch.
+      const board = queryClient.getQueryData<BoardDetailDto>(["board", boardId]);
+      const label = board?.labels.find((l) => l.id === labelId);
+      if (label) {
+        patchBoardCardLabels(queryClient, boardId, cardId, (labels) =>
+          labels.some((l) => l.id === labelId) ? labels : [...labels, label]
+        );
+      }
+      queryClient.invalidateQueries({ queryKey: ["card", cardId] });
+    },
   });
 }
 
-export function useDetachLabel(cardId: string) {
+export function useDetachLabel(cardId: string, boardId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (labelId: string) => apiFetch(`/cards/${cardId}/labels/${labelId}`, { method: "DELETE" }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["card", cardId] }),
+    onSuccess: (_data, labelId) => {
+      patchBoardCardLabels(queryClient, boardId, cardId, (labels) =>
+        labels.filter((l) => l.id !== labelId)
+      );
+      queryClient.invalidateQueries({ queryKey: ["card", cardId] });
+    },
   });
 }
 

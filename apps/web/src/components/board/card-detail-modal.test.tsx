@@ -17,6 +17,7 @@ function makeCard(overrides: Partial<CardDetailDto> = {}): CardDetailDto {
     title: "Ship the feature",
     description: null,
     position: 1024,
+    startDate: null,
     dueDate: null,
     coverColor: null,
     labels: [],

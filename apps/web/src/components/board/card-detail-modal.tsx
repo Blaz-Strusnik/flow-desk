@@ -25,6 +25,7 @@ import {
 } from "@/hooks/use-cards";
 import { useCreateLabel } from "@/hooks/use-labels";
 import { useWorkspaceMembers } from "@/hooks/use-workspace-members";
+import { readableTextColor } from "@/lib/label-color";
 import { cn } from "@/lib/utils";
 import { TiptapEditor } from "./tiptap-editor";
 
@@ -52,8 +53,8 @@ export function CardDetailModal({ cardId, boardId, onClose }: CardDetailModalPro
   const { data: workspaceMembers } = useWorkspaceMembers(board?.workspaceId ?? "");
   const updateCard = useUpdateCard(boardId);
   const addComment = useAddComment(cardId);
-  const attachLabel = useAttachLabel(cardId);
-  const detachLabel = useDetachLabel(cardId);
+  const attachLabel = useAttachLabel(cardId, boardId);
+  const detachLabel = useDetachLabel(cardId, boardId);
   const assignMember = useAssignMember(cardId);
   const unassignMember = useUnassignMember(cardId);
   const addBoardMember = useAddBoardMember(boardId);
@@ -160,7 +161,15 @@ export function CardDetailModal({ cardId, boardId, onClose }: CardDetailModalPro
                   >
                     <Badge
                       variant={active ? "default" : "outline"}
-                      style={active ? { backgroundColor: label.color, borderColor: label.color } : undefined}
+                      style={
+                        active
+                          ? {
+                              backgroundColor: label.color,
+                              borderColor: label.color,
+                              color: readableTextColor(label.color),
+                            }
+                          : undefined
+                      }
                     >
                       {label.name}
                     </Badge>
@@ -263,19 +272,37 @@ export function CardDetailModal({ cardId, boardId, onClose }: CardDetailModalPro
             )}
           </div>
 
-          <div>
-            <label className="mb-2 block text-xs font-medium text-muted-foreground">Due date</label>
-            <Input
-              type="date"
-              defaultValue={card.dueDate ? card.dueDate.slice(0, 10) : ""}
-              onChange={(e) =>
-                updateCard.mutate({
-                  cardId,
-                  dueDate: e.target.value ? new Date(e.target.value).toISOString() : null,
-                })
-              }
-              className="w-48"
-            />
+          <div className="flex flex-wrap gap-4">
+            <div>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">Start date</label>
+              <Input
+                type="date"
+                max={card.dueDate ? card.dueDate.slice(0, 10) : undefined}
+                defaultValue={card.startDate ? card.startDate.slice(0, 10) : ""}
+                onChange={(e) =>
+                  updateCard.mutate({
+                    cardId,
+                    startDate: e.target.value ? new Date(e.target.value).toISOString() : null,
+                  })
+                }
+                className="w-48"
+              />
+            </div>
+            <div>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">Due date</label>
+              <Input
+                type="date"
+                min={card.startDate ? card.startDate.slice(0, 10) : undefined}
+                defaultValue={card.dueDate ? card.dueDate.slice(0, 10) : ""}
+                onChange={(e) =>
+                  updateCard.mutate({
+                    cardId,
+                    dueDate: e.target.value ? new Date(e.target.value).toISOString() : null,
+                  })
+                }
+                className="w-48"
+              />
+            </div>
           </div>
 
           <div>
